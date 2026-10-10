@@ -1,0 +1,13 @@
+{
+  "name": "rijian-collector",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "collect": "tsx src/cli.ts collect",
+    "serve": "tsx src/cli.ts serve",
+    "test": "tsx ../mobile/src/shared/assemble.test.ts"
+  },
+  "dependencies": {
+    "tsx": "^4.20.6"
+  }
+}

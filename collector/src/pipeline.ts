@@ -9,6 +9,8 @@ import { isEmergency, tagDomains, topicFrom } from "./tag.ts";
 
 const OUTPUT = path.resolve(import.meta.dirname, "../output");
 const BUNDLED = path.resolve(import.meta.dirname, "../../mobile/src/data/tugua-library.json");
+const BUNDLED_FLUTTER = path.resolve(import.meta.dirname, "../../flutter_app/assets/tugua-library.json");
+const FLUTTER_PUBSPEC = path.resolve(import.meta.dirname, "../../flutter_app/pubspec.yaml");
 
 export function shanghaiNow(now = new Date()): { date: string; minutes: number } {
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -40,13 +42,35 @@ function stableId(text: string): string {
   return (hash >>> 0).toString(16);
 }
 
-function readPrefs(): PreferenceState {
+function apiBase(): string {
+  const fromEnv = process.env.RIJIAN_API_URL?.trim();
+  if (fromEnv) return fromEnv.replace(/\/$/, "");
+  const file = path.resolve(import.meta.dirname, "../api-base.txt");
+  if (!fs.existsSync(file)) return "";
+  return fs.readFileSync(file, "utf8").trim().replace(/\/$/, "");
+}
+
+async function readPrefs(): Promise<{ prefs: PreferenceState; note: string }> {
+  const remote = apiBase();
+  if (remote) {
+    try {
+      const response = await fetch(`${remote}/api/preferences`, { signal: AbortSignal.timeout(8000) });
+      if (response.ok) {
+        const json = (await response.json()) as PreferenceState & { stored?: boolean };
+        if (json.stored !== false && Array.isArray(json.tags)) {
+          return { prefs: { tags: json.tags }, note: `兴趣来自 ${remote}` };
+        }
+      }
+    } catch {
+      // 远程没有兴趣时，继续用本机文件。
+    }
+  }
   const file = path.join(OUTPUT, "preferences.json");
-  if (!fs.existsSync(file)) return EMPTY_PREFS;
+  if (!fs.existsSync(file)) return { prefs: EMPTY_PREFS, note: "没有已保存的兴趣" };
   try {
-    return JSON.parse(fs.readFileSync(file, "utf8")) as PreferenceState;
+    return { prefs: JSON.parse(fs.readFileSync(file, "utf8")) as PreferenceState, note: "兴趣来自本机文件" };
   } catch {
-    return EMPTY_PREFS;
+    return { prefs: EMPTY_PREFS, note: "没有已保存的兴趣" };
   }
 }
 
@@ -192,8 +216,26 @@ function writeBundledLibrary(): void {
     .filter((item): item is Briefing => item !== null && isCurrentTugua(item))
     .sort((a, b) => b.date.localeCompare(a.date));
   const library: Library = { briefings, candidates: [] };
+  const json = JSON.stringify(library);
   fs.mkdirSync(path.dirname(BUNDLED), { recursive: true });
-  fs.writeFileSync(BUNDLED, JSON.stringify(library), "utf8");
+  fs.mkdirSync(path.dirname(BUNDLED_FLUTTER), { recursive: true });
+  fs.writeFileSync(BUNDLED, json, "utf8");
+  fs.writeFileSync(BUNDLED_FLUTTER, json, "utf8");
+  syncFlutterAssetDirs(briefings.map((item) => item.date));
+}
+
+function syncFlutterAssetDirs(dates: string[]): void {
+  if (!fs.existsSync(FLUTTER_PUBSPEC)) return;
+  const pubspec = fs.readFileSync(FLUTTER_PUBSPEC, "utf8");
+  const newline = pubspec.includes("\r\n") ? "\r\n" : "\n";
+  const startMark = `    # tugua-assets${newline}`;
+  const endMark = `    # end-tugua-assets${newline}`;
+  const start = pubspec.indexOf(startMark);
+  const end = pubspec.indexOf(endMark);
+  if (start < 0 || end < 0 || end < start) return;
+  const lines = [...new Set(dates)].sort().map((date) => `    - assets/tugua/${date}/${newline}`).join("");
+  const next = `${pubspec.slice(0, start)}${startMark}${lines}${pubspec.slice(end)}`;
+  if (next !== pubspec) fs.writeFileSync(FLUTTER_PUBSPEC, next, "utf8");
 }
 
 export async function collect(now = new Date()): Promise<{ date: string; frozen: boolean; notes: string[] }> {
@@ -207,6 +249,8 @@ export async function collect(now = new Date()): Promise<{ date: string; frozen:
   purgeMixed();
 
   const latest = fetched.editions[0]?.date ?? clock.date;
+  const savedPrefs = await readPrefs();
+  notes.push(savedPrefs.note);
   let frozen = false;
   for (const edition of fetched.editions) {
     const briefingFile = path.join(OUTPUT, "briefings", `${edition.date}.json`);
@@ -217,7 +261,7 @@ export async function collect(now = new Date()): Promise<{ date: string; frozen:
       continue;
     }
     const images = await localizeEditionImages(edition);
-    const briefing = briefingFrom(edition, readPrefs(), now.toISOString());
+    const briefing = briefingFrom(edition, savedPrefs.prefs, now.toISOString());
     const pool: CandidatePool = {
       date: edition.date,
       suggestedTitle: briefing.title,

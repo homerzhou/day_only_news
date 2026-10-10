@@ -3,6 +3,8 @@ import path from "node:path";
 import type { TuguaEdition } from "./dapenti.ts";
 
 const PUBLIC = path.resolve(import.meta.dirname, "../../mobile/public/tugua");
+const FLUTTER_PUBLIC = path.resolve(import.meta.dirname, "../../flutter_app/assets/tugua");
+const SITE_PUBLIC = path.resolve(import.meta.dirname, "../../public/tugua");
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
 function extension(type: string, bytes: Buffer): string | null {
@@ -76,5 +78,13 @@ export async function localizeEditionImages(edition: TuguaEdition): Promise<numb
     hit.imageUrl = image?.kind === "image" ? image.url : undefined;
   }
   edition.imageUrl = edition.hits.find((hit) => hit.imageUrl)?.imageUrl;
+  fs.mkdirSync(FLUTTER_PUBLIC, { recursive: true });
+  const flutterDir = path.join(FLUTTER_PUBLIC, edition.date);
+  fs.rmSync(flutterDir, { recursive: true, force: true });
+  fs.cpSync(dir, flutterDir, { recursive: true });
+  fs.mkdirSync(SITE_PUBLIC, { recursive: true });
+  const siteDir = path.join(SITE_PUBLIC, edition.date);
+  fs.rmSync(siteDir, { recursive: true, force: true });
+  fs.cpSync(dir, siteDir, { recursive: true });
   return saved;
 }

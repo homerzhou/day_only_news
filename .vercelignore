@@ -1,0 +1,11 @@
+mobile/node_modules
+mobile/.expo
+mobile/public/tugua
+collector/node_modules
+collector/output
+flutter_app/.dart_tool
+flutter_app/build
+flutter_app/ios
+flutter_app/android
+flutter_app/assets/tugua
+**/*.log

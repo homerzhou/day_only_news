@@ -10,6 +10,7 @@ import type {
   PreferenceState,
   Reaction,
   StoredReaction,
+  StoryBlock,
   TagKind,
 } from "./shared/types";
 import { EMPTY_PREFS } from "./shared/types";
@@ -45,6 +46,23 @@ type AppContextValue = {
 };
 
 const AppContext = createContext<AppContextValue | null>(null);
+
+function bindMedia(library: Library, base: string): Library {
+  const mapUrl = (url?: string) => (url && url.startsWith("/") ? `${base}${url}` : url);
+  const mapBlocks = (blocks?: StoryBlock[]) =>
+    blocks?.map((block) => (block.kind === "image" ? { ...block, url: mapUrl(block.url) ?? "" } : block));
+  return {
+    briefings: library.briefings.map((briefing) => ({
+      ...briefing,
+      imageUrl: mapUrl(briefing.imageUrl),
+      items: briefing.items.map((item) => ({ ...item, imageUrl: mapUrl(item.imageUrl), blocks: mapBlocks(item.blocks) })),
+    })),
+    candidates: library.candidates.map((pool) => ({
+      ...pool,
+      items: pool.items.map((item) => ({ ...item, imageUrl: mapUrl(item.imageUrl), blocks: mapBlocks(item.blocks) })),
+    })),
+  };
+}
 
 function mergeLibrary(base: Library, extra: Library | null): Library {
   if (!extra) return base;
@@ -95,7 +113,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (savedPrefs) setPrefs(savedPrefs);
       if (savedReactions) setReactions(savedReactions);
       if (savedUrl) setServerUrlState(savedUrl);
-      if (savedLibrary) setLibrary(mergeLibrary(bundledLibrary, savedLibrary));
+      const base = savedUrl?.trim().replace(/\/$/, "") ?? "";
+      if (savedLibrary) setLibrary(mergeLibrary(bundledLibrary, base ? bindMedia(savedLibrary, base) : savedLibrary));
       setReady(true);
     })();
     return () => {
@@ -145,11 +164,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const response = await fetch(`${base}/api/library`);
       if (!response.ok) throw new Error(String(response.status));
-      const remote = (await response.json()) as Library;
+      const remote = bindMedia((await response.json()) as Library, base);
       const next = mergeLibrary(bundledLibrary, remote);
       setLibrary(next);
       setLoadError(null);
-      await AsyncStorage.setItem(KEYS.library, JSON.stringify(next));
+      await AsyncStorage.setItem(KEYS.library, JSON.stringify(remote));
     } catch {
       setLoadError("暂时没刷新到，显示的是上次内容");
     } finally {

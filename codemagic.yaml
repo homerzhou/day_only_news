@@ -1,0 +1,37 @@
+workflows:
+  ios-ipa:
+    name: 日简 iOS
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    working_directory: flutter_app
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: ad_hoc
+        bundle_identifier: com.homerzhou.rijian
+    scripts:
+      - name: 补上 iOS 工程
+        script: |
+          flutter create --org com.homerzhou --project-name rijian --platforms=ios .
+      - name: 应用名与本地网络
+        script: |
+          python3 - <<'PY'
+          import plistlib
+          path = "ios/Runner/Info.plist"
+          with open(path, "rb") as handle:
+              data = plistlib.load(handle)
+          data["CFBundleDisplayName"] = "日简"
+          data["CFBundleName"] = "日简"
+          data["NSAppTransportSecurity"] = {"NSAllowsArbitraryLoads": True}
+          with open(path, "wb") as handle:
+              plistlib.dump(data, handle, fmt=plistlib.FMT_XML)
+          PY
+      - name: 使用 Codemagic 里的签名
+        script: xcode-project use-profiles
+      - name: 打出安装包
+        script: flutter build ipa --release --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log

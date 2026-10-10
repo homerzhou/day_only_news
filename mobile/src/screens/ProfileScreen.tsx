@@ -177,7 +177,7 @@ export function ProfileScreen() {
 
       <Text style={{ color: theme.text, fontWeight: "700", marginTop: 28, marginBottom: 8 }}>简报服务</Text>
       <Text style={{ color: theme.muted, marginBottom: 8 }}>
-        留空就用手机里已有的简报。填上电脑地址后，下拉列表会拉取新的一份，兴趣也会同步过去，给定稿用。
+        留空就用已经带在应用里的简报。填 Vercel 上的地址后，下拉列表会拉取新的一份，兴趣也会同步过去，给定稿用。
       </Text>
       <TextInput
         value={urlDraft}
@@ -185,7 +185,7 @@ export function ProfileScreen() {
         onEndEditing={() => setServerUrl(urlDraft)}
         autoCapitalize="none"
         autoCorrect={false}
-        placeholder="http://10.0.88.174:8787"
+        placeholder="https://你的项目.vercel.app"
         placeholderTextColor={theme.muted}
         style={{
           backgroundColor: theme.card,

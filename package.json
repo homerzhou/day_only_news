@@ -2,6 +2,10 @@
   "name": "rijian",
   "private": true,
   "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@vercel/blob": "^2.0.0"
   }

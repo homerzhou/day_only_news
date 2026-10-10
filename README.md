@@ -39,7 +39,7 @@ npm run serve
 
 ## 部署到 Vercel
 
-仓库根目录已经是 Vercel 项目：`api/library.js` 提供简报，`api/preferences.js` 接收兴趣，`public/tugua/` 提供图片。
+仓库根目录已经是 Vercel 项目。入口是 `server.js`，`package.json` 的 `main` 指向它。`/api/library` 提供简报，`/api/preferences` 接收兴趣，`public/tugua/` 提供图片。
 
 1. 在 Vercel 里导入 GitHub 仓库 `homerzhou/day_only_news`。框架选 Other，根目录用仓库根，不用改构建命令。
 2. 在该项目里创建一个 Blob 存储。Vercel 会写入 `BLOB_READ_WRITE_TOKEN`。没有这块存储时，简报和图片仍然可用，兴趣只留在手机上。
